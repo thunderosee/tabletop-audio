@@ -243,5 +243,5 @@ $('#ambience-volume').addEventListener('input', event => setVolume('ambience', e
 $('#effects-volume').addEventListener('input', event => setVolume('effects', event.target.value));
 window.addEventListener('beforeunload', () => { for (const url of state.objectUrls.values()) URL.revokeObjectURL(url); });
 setupAudioInterruptions();
-try { await dbPromise; await renderGames(); if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.warn); }
+try { await dbPromise; await renderGames(); if ('serviceWorker' in navigator) navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(console.warn); }
 catch (error) { console.error(error); toast('Не вдалося відкрити локальне сховище браузера.'); }
