@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#10100f" />
+    <meta name="description" content="Локальна звукова панель для настільних ігор." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>Tabletop Audio</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Tabletop Audio — головна">
+          <span class="brand-mark">◖</span><span>TABLETOP <b>AUDIO</b></span>
+        </a>
+        <span class="local-badge"><i></i> ЛИШЕ НА ЦЬОМУ ПРИСТРОЇ</span>
+      </header>
+
+      <section id="library-view" class="view">
+        <div class="hero">
+          <div>
+            <p class="eyebrow">ЗВУКОВА СЦЕНА ДЛЯ ВАШОЇ ГРИ</p>
+            <h1>Нехай світ <em>зазвучить.</em></h1>
+            <p class="hero-copy">Зберіть атмосферу пригоди. Усі звуки залишаються на вашому пристрої.</p>
+          </div>
+          <div class="hero-stamp" aria-hidden="true"><span>✳</span><small>YOUR<br />TABLE<br />YOUR WORLD</small></div>
+        </div>
+
+        <div class="section-heading">
+          <div><p class="eyebrow">ВАША КОЛЕКЦІЯ</p><h2>Ігрові світи <span id="game-count">00</span></h2></div>
+          <button id="new-game" class="button button-primary"><span>＋</span> Нова гра</button>
+        </div>
+        <div id="games-grid" class="games-grid"></div>
+        <div id="empty-state" class="empty-state" hidden>
+          <div class="empty-orbit">✳</div>
+          <h3>Тут поки тихо</h3>
+          <p>Створіть першу гру, щоб почати будувати її звуковий світ.</p>
+          <button id="empty-new-game" class="button button-outline">＋ Створити першу гру</button>
+        </div>
+        <footer>ЗРОБЛЕНО ДЛЯ ІГРОВИХ ВЕЧОРІВ <span>✳</span> ВАШІ ФАЙЛИ — ВАШІ</footer>
+      </section>
+
+      <section id="board-view" class="view board-view" hidden>
+        <button id="back-to-library" class="back-link">← <span>Усі світи</span></button>
+        <div class="board-header">
+          <div><p class="eyebrow">ВАША ІГРОВА СЦЕНА</p><h1 id="board-title"></h1><p id="board-description" class="hero-copy">Оберіть атмосферу та додайте звуки для важливих моментів.</p></div>
+          <button id="edit-game" class="icon-button" aria-label="Редагувати гру" title="Редагувати гру">···</button>
+        </div>
+        <div class="board-layout">
+          <div class="sound-column">
+            <section class="sound-section">
+              <div class="section-heading compact"><div><p class="eyebrow">ФОНОВИЙ ЗВУК</p><h2>Атмосфера <span id="ambience-count">00</span></h2></div><button class="button button-small add-audio" data-kind="ambience">＋ Додати аудіо</button></div>
+              <div id="ambience-list" class="sound-list"></div>
+            </section>
+            <section class="sound-section effects-section">
+              <div class="section-heading compact"><div><p class="eyebrow">ЗВУКИ МОМЕНТУ</p><h2>Ефекти <span id="effect-count">00</span></h2></div><button class="button button-small add-audio" data-kind="effect">＋ Додати аудіо</button></div>
+              <div id="effects-list" class="sound-list effect-grid"></div>
+            </section>
+          </div>
+          <aside class="mixer-card">
+            <p class="eyebrow">ЗВУКОВИЙ ПУЛЬТ</p><h2>Мікшер</h2>
+            <div class="volume-control"><label for="ambience-volume"><span>Атмосфера</span><b id="ambience-volume-value">70%</b></label><input id="ambience-volume" type="range" min="0" max="100" value="70" /></div>
+            <div class="volume-control"><label for="effects-volume"><span>Ефекти</span><b id="effects-volume-value">85%</b></label><input id="effects-volume" type="range" min="0" max="100" value="85" /></div>
+            <div class="mixer-note"><span>✳</span><p>Ефекти звучать поверх атмосфери. Файли доступні навіть офлайн.</p></div>
+          </aside>
+        </div>
+        <footer>ЗРОБЛЕНО ДЛЯ ІГРОВИХ ВЕЧОРІВ <span>✳</span> ВАШІ ФАЙЛИ — ВАШІ</footer>
+      </section>
+    </main>
+
+    <dialog id="game-dialog" class="dialog">
+      <form id="game-form" method="dialog">
+        <button type="button" class="dialog-close" aria-label="Закрити">×</button>
+        <p class="eyebrow">НОВИЙ СВІТ</p><h2 id="dialog-title">Створіть гру</h2>
+        <label class="field-label" for="game-name">Назва</label><input id="game-name" maxlength="60" required placeholder="Наприклад, Туман над Рівендом" />
+        <label class="field-label" for="game-note">Короткий опис <span>необов’язково</span></label><textarea id="game-note" maxlength="140" rows="2" placeholder="Яку атмосферу шукаємо?"></textarea>
+        <div class="dialog-actions"><button type="button" id="delete-game" class="text-danger" hidden>Видалити гру</button><button type="button" class="button button-quiet cancel-dialog">Скасувати</button><button class="button button-primary" id="save-game">Створити гру</button></div>
+      </form>
+    </dialog>
+    <dialog id="delete-dialog" class="dialog">
+      <form method="dialog"><p class="eyebrow">ВИДАЛЕННЯ СВІТУ</p><h2>Видалити цю гру?</h2><p id="delete-warning" class="dialog-copy"></p><div class="dialog-actions"><button class="button button-quiet" value="cancel">Залишити</button><button id="confirm-delete" class="button button-danger" value="confirm">Видалити гру</button></div></form>
+    </dialog>
+    <input id="audio-picker" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" multiple hidden />
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
