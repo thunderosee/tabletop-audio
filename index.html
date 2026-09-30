@@ -20,17 +20,8 @@
       </header>
 
       <section id="library-view" class="view">
-        <div class="hero">
-          <div>
-            <p class="eyebrow">ЗВУКОВА СЦЕНА ДЛЯ ВАШОЇ ГРИ</p>
-            <h1>Нехай світ <em>зазвучить.</em></h1>
-            <p class="hero-copy">Зберіть атмосферу пригоди. Усі звуки залишаються на вашому пристрої.</p>
-          </div>
-          <div class="hero-stamp" aria-hidden="true"><span>✳</span><small>YOUR<br />TABLE<br />YOUR WORLD</small></div>
-        </div>
-
-        <div class="section-heading">
-          <div><p class="eyebrow">ВАША КОЛЕКЦІЯ</p><h2>Ігрові світи <span id="game-count">00</span></h2></div>
+        <div class="section-heading library-heading">
+          <div><p class="eyebrow">ВАША КОЛЕКЦІЯ</p><h2>Ігрові світи <span id="game-count" class="count-badge count-badge-large">00</span></h2></div>
           <button id="new-game" class="button button-primary"><span>＋</span> Нова гра</button>
         </div>
         <div id="games-grid" class="games-grid"></div>
@@ -52,11 +43,11 @@
         <div class="board-layout">
           <div class="sound-column">
             <section class="sound-section">
-              <div class="section-heading compact"><div><p class="eyebrow">ФОНОВИЙ ЗВУК</p><h2>Атмосфера <span id="ambience-count">00</span></h2></div><button class="button button-small add-audio" data-kind="ambience">＋ Додати аудіо</button></div>
+              <div class="section-heading compact"><div><p class="eyebrow">ФОНОВИЙ ЗВУК</p><h2>Атмосфера <span id="ambience-count" class="count-badge">00</span></h2></div><button class="button button-small add-audio" data-kind="ambience">＋ Додати аудіо</button></div>
               <div id="ambience-list" class="sound-list"></div>
             </section>
             <section class="sound-section effects-section">
-              <div class="section-heading compact"><div><p class="eyebrow">ЗВУКИ МОМЕНТУ</p><h2>Ефекти <span id="effect-count">00</span></h2></div><button class="button button-small add-audio" data-kind="effect">＋ Додати аудіо</button></div>
+              <div class="section-heading compact"><div><p class="eyebrow">ЗВУКИ МОМЕНТУ</p><h2>Ефекти <span id="effect-count" class="count-badge">00</span></h2></div><button class="button button-small add-audio" data-kind="effect">＋ Додати аудіо</button></div>
               <div id="effects-list" class="sound-list effect-grid"></div>
             </section>
           </div>

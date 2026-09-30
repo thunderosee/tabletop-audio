@@ -32,7 +32,7 @@ const getAudio = key => store('audio', 'readonly', s => s.get(key));
 const saveAudio = item => store('audio', 'readwrite', s => s.put(item));
 const deleteAudio = key => store('audio', 'readwrite', s => s.delete(key));
 
-const state = { games: [], currentGame: null, editingGame: null, pendingKind: null, audio: [], players: new Map(), objectUrls: new Map(), toastTimer: null };
+const state = { games: [], currentGame: null, editingGame: null, editingOrigin: null, pendingKind: null, audio: [], players: new Map(), objectUrls: new Map(), toastTimer: null };
 const libraryView = $('#library-view');
 const boardView = $('#board-view');
 const gameDialog = $('#game-dialog');
@@ -56,13 +56,16 @@ async function renderGames() {
   $('#games-grid').innerHTML = '';
   const sounds = await allAudio();
   for (const game of state.games.sort((a, b) => a.created - b.created)) {
-    const count = sounds.filter(item => item.gameId === game.id).length;
+    const gameSounds = sounds.filter(item => item.gameId === game.id);
+    const soundtrackCount = gameSounds.filter(item => item.kind === 'ambience').length;
+    const effectCount = gameSounds.filter(item => item.kind === 'effect').length;
     const card = document.createElement('article');
-    card.className = 'game-card'; card.tabIndex = 0; card.setAttribute('role', 'button');
-    card.innerHTML = `<div class="game-card-top"><span class="game-symbol">✳</span><span class="game-dots">···</span></div><h3></h3><p></p><div class="game-card-foot"><span>ЗВУКІВ <b>${String(count).padStart(2, '0')}</b></span><span>ВІДКРИТИ ↗</span></div>`;
+    card.className = 'game-card';
+    card.innerHTML = `<button class="game-card-open" type="button"></button><div class="game-card-top"><span class="game-card-kicker" aria-hidden="true">ІГРОВИЙ СВІТ</span><button class="game-dots" type="button" aria-label="Редагувати гру" title="Редагувати назву й опис">···</button></div><h3 aria-hidden="true"></h3><p aria-hidden="true"></p><div class="game-card-foot" aria-hidden="true"><span class="game-card-stat"><b>${String(soundtrackCount).padStart(2, '0')}</b><small>САУНДТРЕКІВ</small></span><span class="game-card-stat"><b>${String(effectCount).padStart(2, '0')}</b><small>ЕФЕКТІВ</small></span></div>`;
+    $('.game-card-open', card).setAttribute('aria-label', `Відкрити гру ${game.name}: ${soundtrackCount} саундтреків, ${effectCount} ефектів`);
     $('h3', card).textContent = game.name; $('p', card).textContent = game.note || 'Ваша пригода чекає на свій звук.';
-    card.addEventListener('click', () => openBoard(game.id));
-    card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openBoard(game.id); } });
+    $('.game-card-open', card).addEventListener('click', () => openBoard(game.id));
+    $('.game-dots', card).addEventListener('click', () => openGameDialog(game));
     $('#games-grid').append(card);
   }
 }
@@ -157,7 +160,9 @@ function fadeAll() {
   }
 }
 function openGameDialog(game = null) {
-  state.editingGame = game; form.reset();
+  state.editingGame = game;
+  state.editingOrigin = game ? (state.currentGame ? 'board' : 'library') : 'new';
+  form.reset();
   $('#dialog-title').textContent = game ? 'Налаштуйте гру' : 'Створіть гру';
   $('#save-game').textContent = game ? 'Зберегти зміни' : 'Створити гру';
   $('#delete-game').hidden = !game;
@@ -168,9 +173,11 @@ async function onSaveGame(event) {
   event.preventDefault();
   const name = $('#game-name').value.trim(); if (!name) return;
   const existing = state.editingGame;
+  const editingOrigin = state.editingOrigin;
   const game = { id: existing?.id || id(), name, note: $('#game-note').value.trim(), created: existing?.created || Date.now() };
   await saveGame(game); gameDialog.close();
-  if (existing) { state.currentGame = game; await openBoard(game.id); toast('Зміни збережено.'); }
+  if (existing && editingOrigin === 'board') { state.currentGame = game; await openBoard(game.id); toast('Зміни збережено.'); }
+  else if (existing) { state.editingGame = null; state.editingOrigin = null; await displayLibrary(); toast('Зміни збережено.'); }
   else { await renderGames(); await openBoard(game.id); }
 }
 async function askDeleteGame() {
