@@ -43,6 +43,27 @@ function toast(message) {
   const node = $('#toast'); node.textContent = message; node.classList.add('visible');
   clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => node.classList.remove('visible'), 3200);
 }
+function showDialog(dialog) {
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+    return;
+  }
+  dialog.setAttribute('open', '');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.classList.add('is-open');
+  document.body.classList.add('has-open-dialog');
+}
+function closeDialog(dialog, returnValue = '') {
+  if (typeof dialog.close === 'function') {
+    dialog.close(returnValue);
+    return;
+  }
+  dialog.returnValue = returnValue;
+  dialog.removeAttribute('open');
+  dialog.removeAttribute('aria-modal');
+  dialog.classList.remove('is-open');
+  document.body.classList.remove('has-open-dialog');
+}
 function formatSize(bytes) { return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`; }
 function displayLibrary() {
   libraryView.hidden = false; boardView.hidden = true; state.currentGame = null;
@@ -167,7 +188,7 @@ function openGameDialog(game = null) {
   $('#save-game').textContent = game ? 'Зберегти зміни' : 'Створити гру';
   $('#delete-game').hidden = !game;
   $('#game-name').value = game?.name || ''; $('#game-note').value = game?.note || '';
-  gameDialog.showModal(); $('#game-name').focus();
+  showDialog(gameDialog); $('#game-name').focus();
 }
 async function onSaveGame(event) {
   event.preventDefault();
@@ -175,7 +196,7 @@ async function onSaveGame(event) {
   const existing = state.editingGame;
   const editingOrigin = state.editingOrigin;
   const game = { id: existing?.id || id(), name, note: $('#game-note').value.trim(), created: existing?.created || Date.now() };
-  await saveGame(game); gameDialog.close();
+  await saveGame(game); closeDialog(gameDialog);
   if (existing && editingOrigin === 'board') { state.currentGame = game; await openBoard(game.id); toast('Зміни збережено.'); }
   else if (existing) { state.editingGame = null; state.editingOrigin = null; await displayLibrary(); toast('Зміни збережено.'); }
   else { await renderGames(); await openBoard(game.id); }
@@ -183,7 +204,7 @@ async function onSaveGame(event) {
 async function askDeleteGame() {
   if (!state.editingGame) return;
   $('#delete-warning').textContent = `Буде видалено «${state.editingGame.name}», список звуків і копії аудіофайлів, збережені застосунком для цієї гри. Оригінали на телефоні не зміняться.`;
-  gameDialog.close(); deleteDialog.showModal();
+  closeDialog(gameDialog); showDialog(deleteDialog);
 }
 async function confirmDelete() {
   const game = state.editingGame; if (!game) return;
@@ -194,7 +215,7 @@ async function confirmDelete() {
     state.objectUrls.delete(item.id); await deleteAudio(item.id);
   }
   await store('games', 'readwrite', s => s.delete(game.id));
-  deleteDialog.close(); state.editingGame = null; displayLibrary(); toast('Гру та її імпортовані аудіокопії видалено.');
+  closeDialog(deleteDialog); state.editingGame = null; displayLibrary(); toast('Гру та її імпортовані аудіокопії видалено.');
 }
 async function importFiles(files) {
   const selected = [...files]; if (!selected.length || !state.currentGame) return;
@@ -241,14 +262,22 @@ $('#empty-new-game').addEventListener('click', () => openGameDialog());
 $('#edit-game').addEventListener('click', () => openGameDialog(state.currentGame));
 $('#back-to-library').addEventListener('click', () => { fadeAll(); displayLibrary(); });
 form.addEventListener('submit', onSaveGame);
-$$('.dialog-close,.cancel-dialog').forEach(button => button.addEventListener('click', () => gameDialog.close()));
+$$('.dialog-close,.cancel-dialog').forEach(button => button.addEventListener('click', () => closeDialog(gameDialog)));
 $('#delete-game').addEventListener('click', askDeleteGame);
-$('#confirm-delete').addEventListener('click', event => { event.preventDefault(); deleteDialog.close('confirm'); confirmDelete(); });
+$('#delete-dialog button[value="cancel"]').addEventListener('click', event => { event.preventDefault(); closeDialog(deleteDialog, 'cancel'); });
+$('#confirm-delete').addEventListener('click', event => { event.preventDefault(); deleteDialog.returnValue = 'confirm'; closeDialog(deleteDialog, 'confirm'); confirmDelete(); });
 $$('.add-audio').forEach(button => button.addEventListener('click', () => { state.pendingKind = button.dataset.kind; picker.click(); }));
 picker.addEventListener('change', async () => { await importFiles(picker.files); picker.value = ''; });
 $('#ambience-volume').addEventListener('input', event => setVolume('ambience', event.target.value));
 $('#effects-volume').addEventListener('input', event => setVolume('effects', event.target.value));
 window.addEventListener('beforeunload', () => { for (const url of state.objectUrls.values()) URL.revokeObjectURL(url); });
 setupAudioInterruptions();
+if (typeof HTMLDialogElement === 'undefined' || typeof HTMLDialogElement.prototype.showModal !== 'function') {
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (deleteDialog.open) closeDialog(deleteDialog, 'cancel');
+    else if (gameDialog.open) closeDialog(gameDialog);
+  });
+}
 try { await dbPromise; await renderGames(); if ('serviceWorker' in navigator) navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(console.warn); }
 catch (error) { console.error(error); toast('Не вдалося відкрити локальне сховище браузера.'); }
