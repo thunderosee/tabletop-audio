@@ -32,7 +32,7 @@ const getAudio = key => store('audio', 'readonly', s => s.get(key));
 const saveAudio = item => store('audio', 'readwrite', s => s.put(item));
 const deleteAudio = key => store('audio', 'readwrite', s => s.delete(key));
 
-const state = { games: [], currentGame: null, editingGame: null, editingOrigin: null, pendingKind: null, audio: [], players: new Map(), objectUrls: new Map(), toastTimer: null };
+const state = { games: [], currentGame: null, editingGame: null, editingOrigin: null, pendingKind: null, audio: [], players: new Map(), objectUrls: new Map(), repeatTimers: new Map(), toastTimer: null };
 const libraryView = $('#library-view');
 const boardView = $('#board-view');
 const gameDialog = $('#game-dialog');
@@ -65,6 +65,16 @@ function closeDialog(dialog, returnValue = '') {
   document.body.classList.remove('has-open-dialog');
 }
 function formatSize(bytes) { return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`; }
+function trackTitle(item) { return item.displayName || item.name; }
+function fileTitle(name) { return name.replace(/\.[^.]+$/, ''); }
+function stopRepeat(audioId) {
+  clearInterval(state.repeatTimers.get(audioId));
+  state.repeatTimers.delete(audioId);
+  const player = state.players.get(audioId);
+  if (player && !player.loop) stopPlayer(audioId, true);
+  const row = $(`[data-audio-id="${CSS.escape(audioId)}"]`);
+  if (row) { row.classList.remove('is-playing'); $('.sound-play', row).textContent = '▶'; }
+}
 function displayLibrary() {
   libraryView.hidden = false; boardView.hidden = true; state.currentGame = null;
   renderGames();
@@ -82,9 +92,9 @@ async function renderGames() {
     const effectCount = gameSounds.filter(item => item.kind === 'effect').length;
     const card = document.createElement('article');
     card.className = 'game-card';
-    card.innerHTML = `<button class="game-card-open" type="button"></button><div class="game-card-top"><span class="game-card-kicker" aria-hidden="true">ІГРОВИЙ СВІТ</span><button class="game-dots" type="button" aria-label="Редагувати гру" title="Редагувати назву й опис">···</button></div><h3 aria-hidden="true"></h3><p aria-hidden="true"></p><div class="game-card-foot" aria-hidden="true"><span class="game-card-stat"><b>${String(soundtrackCount).padStart(2, '0')}</b><small>САУНДТРЕКІВ</small></span><span class="game-card-stat"><b>${String(effectCount).padStart(2, '0')}</b><small>ЕФЕКТІВ</small></span></div>`;
-    $('.game-card-open', card).setAttribute('aria-label', `Відкрити гру ${game.name}: ${soundtrackCount} саундтреків, ${effectCount} ефектів`);
-    $('h3', card).textContent = game.name; $('p', card).textContent = game.note || 'Ваша пригода чекає на свій звук.';
+    card.innerHTML = `<button class="game-card-open" type="button" aria-hidden="true" tabindex="-1"></button><div class="game-card-top"><button class="game-dots" type="button" aria-label="Редагувати сетап" title="Редагувати назву й опис">···</button></div><h3 aria-hidden="true"></h3><p aria-hidden="true"></p><div class="game-card-foot" aria-hidden="true"><span class="game-card-stat"><b>${String(soundtrackCount).padStart(2, '0')}</b><small>САУНДТРЕКІВ</small></span><span class="game-card-stat"><b>${String(effectCount).padStart(2, '0')}</b><small>ЕФЕКТІВ</small></span></div>`;
+    $('.game-card-open', card).setAttribute('aria-label', `Відкрити сетап ${game.name}: ${soundtrackCount} саундтреків, ${effectCount} ефектів`);
+    $('h3', card).textContent = game.name; $('p', card).textContent = game.note || '';
     $('.game-card-open', card).addEventListener('click', () => openBoard(game.id));
     $('.game-dots', card).addEventListener('click', () => openGameDialog(game));
     $('#games-grid').append(card);
@@ -93,7 +103,7 @@ async function renderGames() {
 async function openBoard(gameId) {
   const game = await getGame(gameId); if (!game) return displayLibrary();
   state.currentGame = game; libraryView.hidden = true; boardView.hidden = false;
-  $('#board-title').textContent = game.name; $('#board-description').textContent = game.note || 'Оберіть атмосферу та додайте звуки для важливих моментів.';
+  $('#board-title').textContent = game.name; $('#board-description').textContent = game.note || '';
   await renderSoundboard();
 }
 async function renderSoundboard() {
@@ -109,20 +119,48 @@ async function renderSoundboard() {
 function renderList(container, items, isEffect) {
   container.innerHTML = '';
   if (!items.length) {
-    const empty = document.createElement('div'); empty.className = 'sound-row sound-empty';
-    empty.innerHTML = `<span class="sound-play" aria-hidden="true">${isEffect ? '✦' : '♪'}</span><div class="sound-meta"><strong>${isEffect ? 'Додайте перші звукові ефекти' : 'Додайте атмосферний трек'}</strong><small>АУДІО З ВАШОГО ПРИСТРОЮ</small></div>`; container.append(empty); return;
+    const empty = document.createElement('button'); empty.type = 'button'; empty.className = 'sound-row sound-empty'; empty.setAttribute('aria-label', isEffect ? 'Додати звуковий ефект' : 'Додати саундтрек');
+    empty.innerHTML = `<span class="sound-play" aria-hidden="true">${isEffect ? '✦' : '♪'}</span><div class="sound-meta"><strong>${isEffect ? 'Додайте перші звукові ефекти' : 'Додайте атмосферний трек'}</strong><small>АУДІО З ВАШОГО ПРИСТРОЮ</small></div>`;
+    empty.addEventListener('click', () => { state.pendingKind = isEffect ? 'effect' : 'ambience'; picker.click(); }); container.append(empty); return;
   }
   for (const item of items) {
     const row = document.createElement('div'); row.className = 'sound-row'; row.dataset.audioId = item.id;
-    row.innerHTML = `<button class="sound-play" aria-label="${isEffect ? 'Відтворити ефект' : 'Відтворити або призупинити атмосферу'}">▶</button><div class="sound-meta"><strong></strong><small>${isEffect ? 'ЕФЕКТ' : 'АТМОСФЕРА'} · ${formatSize(item.size)}</small></div><div class="row-actions">${isEffect ? '' : '<button class="row-action stop-audio" aria-label="Зупинити й повернути на початок" title="Зупинити">■</button>'}<button class="row-action remove-audio" aria-label="Видалити аудіо" title="Видалити">×</button></div>`;
-    $('strong', row).textContent = item.name;
+    row.innerHTML = `<button class="sound-play" aria-label="${isEffect ? 'Відтворити ефект' : 'Відтворити або призупинити атмосферу'}">▶</button><div class="sound-meta"><strong></strong><small>${isEffect ? `ЕФЕКТ · ${formatSize(item.size)}` : formatSize(item.size)}</small></div><div class="row-actions">${isEffect ? '' : '<button class="row-action stop-audio" aria-label="Зупинити й повернути на початок" title="Зупинити">■</button>'}<button class="row-action rename-audio" aria-label="Перейменувати аудіо" title="Перейменувати">✎</button>${isEffect ? '<button class="row-action stop-effect" aria-label="Зупинити ефект" title="Зупинити">■</button>' : ''}<button class="row-action remove-audio" aria-label="Видалити аудіо" title="Видалити">×</button></div>`;
+    $('strong', row).textContent = trackTitle(item);
     $('.sound-play', row).addEventListener('click', () => isEffect ? playEffect(item) : toggleAmbience(item, row));
+    $('.rename-audio', row).addEventListener('click', async () => {
+      const nextName = window.prompt('Назва саундтреку', trackTitle(item));
+      if (nextName === null) return;
+      const displayName = nextName.trim();
+      if (!displayName) { toast('Назва не може бути порожньою.'); return; }
+      await saveAudio({ ...item, displayName }); await renderSoundboard();
+    });
+    $('.stop-effect', row)?.addEventListener('click', () => stopRepeat(item.id));
+    if (isEffect) {
+      const repeat = document.createElement('label'); repeat.className = 'effect-repeat';
+      repeat.innerHTML = `<span>Повтор</span><select aria-label="Інтервал повтору"><option value="">Вимкнено</option><option value="3">3 с</option><option value="5">5 с</option><option value="7">7 с</option><option value="10">10 с</option><option value="custom">Власний</option></select><input class="repeat-value" type="number" min="0.01" step="any" aria-label="Власний інтервал"><select class="repeat-unit" aria-label="Одиниця інтервалу"><option value="seconds">сек</option><option value="minutes">хв</option></select>`;
+      const select = $('select', repeat); const valueInput = $('.repeat-value', repeat); const unitSelect = $('.repeat-unit', repeat);
+      if (item.repeatIntervalSec) { select.value = ['3', '5', '7', '10'].includes(String(item.repeatIntervalSec)) ? String(item.repeatIntervalSec) : 'custom'; valueInput.value = item.repeatIntervalValue || item.repeatIntervalSec; unitSelect.value = item.repeatIntervalUnit || 'seconds'; }
+      const updateRepeat = async () => {
+        valueInput.hidden = select.value !== 'custom'; unitSelect.hidden = select.value !== 'custom';
+        let seconds = select.value === 'custom' ? Number(valueInput.value) * (unitSelect.value === 'minutes' ? 60 : 1) : Number(select.value);
+        if (select.value === 'custom' && (!Number.isFinite(seconds) || seconds <= 0 || seconds > 2147483)) { if (valueInput.value) toast('Інтервал має бути більшим за нуль і не перевищувати приблизно 24 дні.'); return; }
+        const updated = { ...item, repeatIntervalSec: seconds || null, repeatIntervalValue: select.value === 'custom' ? Number(valueInput.value) : null, repeatIntervalUnit: select.value === 'custom' ? unitSelect.value : null };
+        await saveAudio(updated); Object.assign(item, updated);
+        if (!seconds) stopRepeat(item.id);
+      };
+      select.value = item.repeatIntervalSec ? (['3', '5', '7', '10'].includes(String(item.repeatIntervalSec)) ? String(item.repeatIntervalSec) : 'custom') : '';
+      valueInput.hidden = select.value !== 'custom'; unitSelect.hidden = select.value !== 'custom';
+      select.addEventListener('change', updateRepeat); valueInput.addEventListener('change', updateRepeat); unitSelect.addEventListener('change', updateRepeat);
+      row.append(repeat);
+    }
     $('.stop-audio', row)?.addEventListener('click', async () => {
       const player = state.players.get(item.id);
       if (player) { await fade(player, 0); player.pause(); player.currentTime = 0; player.volume = Number($('#ambience-volume').value) / 100; }
       row.classList.remove('is-playing'); $('.sound-play', row).textContent = '▶';
     });
     $('.remove-audio', row).addEventListener('click', async () => {
+      stopRepeat(item.id);
       if (state.players.has(item.id)) stopPlayer(item.id, true);
       await deleteAudio(item.id); await renderSoundboard(); toast('Аудіофайл видалено з цієї гри.');
     });
@@ -165,10 +203,26 @@ async function toggleAmbience(item, row) {
   catch { toast('Браузер не зміг відтворити цей файл. Спробуйте інший формат.'); }
 }
 async function playEffect(item) {
+  if (state.repeatTimers.has(item.id)) { stopRepeat(item.id); return; }
   const player = createPlayer(item); player.loop = false;
   player.volume = Number($('#effects-volume').value) / 100;
-  player.onended = () => { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); };
-  try { await player.play(); } catch { state.players.delete(item.id); toast('Не вдалося відтворити звуковий файл.'); }
+  const repeating = Number(item.repeatIntervalSec) > 0;
+  const row = $(`[data-audio-id="${CSS.escape(item.id)}"]`);
+  player.onended = () => {
+    if (repeating) { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); if (row) { row.classList.remove('is-playing'); $('.sound-play', row).textContent = '▶'; } return; }
+    state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id);
+  };
+  try { await player.play(); } catch { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); toast('Не вдалося відтворити звуковий файл.'); return; }
+  if (repeating) {
+    row?.classList.add('is-playing'); if (row) $('.sound-play', row).textContent = 'Ⅱ';
+    state.repeatTimers.set(item.id, setInterval(() => {
+      const active = state.players.get(item.id);
+      if (active && !active.paused) return;
+      const next = createPlayer(item); next.loop = false; next.volume = Number($('#effects-volume').value) / 100;
+      next.onended = () => { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); };
+      next.play().catch(() => { state.players.delete(item.id); toast('Не вдалося відтворити звуковий файл.'); });
+    }, Number(item.repeatIntervalSec) * 1000));
+  }
 }
 function stopPlayer(audioId, reset) {
   const player = state.players.get(audioId); if (!player) return;
@@ -176,6 +230,7 @@ function stopPlayer(audioId, reset) {
   URL.revokeObjectURL(state.objectUrls.get(audioId)); state.objectUrls.delete(audioId); state.players.delete(audioId);
 }
 function fadeAll() {
+  for (const audioId of state.repeatTimers.keys()) stopRepeat(audioId);
   for (const [audioId, player] of state.players) {
     if (audioId === state.currentGame?.id || player.loop) fade(player, 0).then(() => { player.pause(); player.currentTime = 0; });
   }
@@ -184,7 +239,7 @@ function openGameDialog(game = null) {
   state.editingGame = game;
   state.editingOrigin = game ? (state.currentGame ? 'board' : 'library') : 'new';
   form.reset();
-  $('#dialog-title').textContent = game ? 'Налаштуйте гру' : 'Створіть гру';
+  $('#dialog-title').textContent = game ? 'Налаштуйте сетап' : 'Створіть сетап';
   $('#save-game').textContent = game ? 'Зберегти зміни' : 'Створити гру';
   $('#delete-game').hidden = !game;
   $('#game-name').value = game?.name || ''; $('#game-note').value = game?.note || '';
@@ -210,6 +265,7 @@ async function confirmDelete() {
   const game = state.editingGame; if (!game) return;
   if (deleteDialog.returnValue !== 'confirm') return;
   for (const item of (await allAudio()).filter(entry => entry.gameId === game.id)) {
+    stopRepeat(item.id);
     if (state.players.has(item.id)) stopPlayer(item.id, true);
     const url = state.objectUrls.get(item.id); if (url) URL.revokeObjectURL(url);
     state.objectUrls.delete(item.id); await deleteAudio(item.id);
@@ -224,7 +280,10 @@ async function importFiles(files) {
     const estimate = await navigator.storage?.estimate?.();
     const total = selected.reduce((sum, file) => sum + file.size, 0);
     if (estimate?.quota && estimate.usage + total > estimate.quota * .95) throw new Error('storage');
-    for (const file of selected) await saveAudio({ id: id(), gameId: state.currentGame.id, name: file.name, size: file.size, type: file.type, blob: file, kind: state.pendingKind, imported: Date.now() });
+    const namedFiles = state.pendingKind === 'ambience' ? selected.map(file => ({ file, displayName: window.prompt(`Назва саундтреку для «${file.name}»`, fileTitle(file.name)) })) : selected.map(file => ({ file, displayName: '' }));
+    if (namedFiles.some(entry => entry.displayName === null)) return;
+    if (namedFiles.some(entry => state.pendingKind === 'ambience' && !entry.displayName.trim())) { toast('Назва саундтреку не може бути порожньою.'); return; }
+    for (const { file, displayName } of namedFiles) await saveAudio({ id: id(), gameId: state.currentGame.id, name: file.name, displayName: displayName.trim() || undefined, size: file.size, type: file.type, blob: file, kind: state.pendingKind, imported: Date.now() });
     const persisted = await navigator.storage?.persist?.();
     await renderSoundboard(); await renderGames();
     toast(persisted === false ? 'Аудіо додано. Браузер поки не закріпив локальне сховище.' : `Додано файлів: ${selected.length}.`);
@@ -238,7 +297,7 @@ function setVolume(kind, value) {
   }
 }
 function setupAudioInterruptions() {
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseAmbienceForInterruption(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { pauseAmbienceForInterruption(); for (const audioId of state.repeatTimers.keys()) stopRepeat(audioId); } });
   window.addEventListener('blur', () => { if (document.hidden) pauseAmbienceForInterruption(); });
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   if (AudioContext) {

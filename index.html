@@ -21,23 +21,23 @@
 
       <section id="library-view" class="view">
         <div class="section-heading library-heading">
-          <div><p class="eyebrow">ВАША КОЛЕКЦІЯ</p><h2>Ігрові світи <span id="game-count" class="count-badge count-badge-large">00</span></h2></div>
-          <button id="new-game" class="button button-primary"><span>＋</span> Нова гра</button>
+          <div><p class="eyebrow">ВАША КОЛЕКЦІЯ</p><h2>Сетапи <span id="game-count" class="count-badge count-badge-large">00</span></h2></div>
+          <button id="new-game" class="button button-primary"><span>＋</span> Новий сетап</button>
         </div>
         <div id="games-grid" class="games-grid"></div>
         <div id="empty-state" class="empty-state" hidden>
           <div class="empty-orbit">✳</div>
           <h3>Тут поки тихо</h3>
-          <p>Створіть першу гру, щоб почати будувати її звуковий світ.</p>
-          <button id="empty-new-game" class="button button-outline">＋ Створити першу гру</button>
+          <p>Створіть перший сетап, щоб почати будувати його звуковий світ.</p>
+          <button id="empty-new-game" class="button button-outline">＋ Створити перший сетап</button>
         </div>
         <footer>ЗРОБЛЕНО ДЛЯ ІГРОВИХ ВЕЧОРІВ <span>✳</span> ВАШІ ФАЙЛИ — ВАШІ</footer>
       </section>
 
       <section id="board-view" class="view board-view" hidden>
-        <button id="back-to-library" class="back-link">← <span>Усі світи</span></button>
+        <button id="back-to-library" class="back-link">← <span>Усі сетапи</span></button>
         <div class="board-header">
-          <div><p class="eyebrow">ВАША ІГРОВА СЦЕНА</p><h1 id="board-title"></h1><p id="board-description" class="hero-copy">Оберіть атмосферу та додайте звуки для важливих моментів.</p></div>
+          <div><h1 id="board-title"></h1><p id="board-description" class="hero-copy"></p></div>
           <button id="edit-game" class="icon-button" aria-label="Редагувати гру" title="Редагувати гру">···</button>
         </div>
         <div class="board-layout">
@@ -65,9 +65,9 @@
     <dialog id="game-dialog" class="dialog">
       <form id="game-form" method="dialog">
         <button type="button" class="dialog-close" aria-label="Закрити">×</button>
-        <p class="eyebrow">НОВИЙ СВІТ</p><h2 id="dialog-title">Створіть гру</h2>
-        <label class="field-label" for="game-name">Назва</label><input id="game-name" maxlength="60" required placeholder="Наприклад, Туман над Рівендом" />
-        <label class="field-label" for="game-note">Короткий опис <span>необов’язково</span></label><textarea id="game-note" maxlength="140" rows="2" placeholder="Яку атмосферу шукаємо?"></textarea>
+        <p class="eyebrow">НОВИЙ СЕТАП</p><h2 id="dialog-title">Створіть сетап</h2>
+        <label class="field-label" for="game-name">Назва</label><input id="game-name" maxlength="60" required placeholder="Наприклад, Сталкер: загальне, Сталкер: група Альфа" />
+        <label class="field-label" for="game-note">Короткий опис <span>необов’язково</span></label><textarea id="game-note" maxlength="140" rows="2" placeholder="Опиши загальну атмосферу, або уточни для якої сесії гравців набір"></textarea>
         <div class="dialog-actions"><button type="button" id="delete-game" class="text-danger" hidden>Видалити гру</button><button type="button" class="button button-quiet cancel-dialog">Скасувати</button><button class="button button-primary" id="save-game">Створити гру</button></div>
       </form>
     </dialog>
