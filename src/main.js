@@ -279,5 +279,12 @@ if (typeof HTMLDialogElement === 'undefined' || typeof HTMLDialogElement.prototy
     else if (gameDialog.open) closeDialog(gameDialog);
   });
 }
-try { await dbPromise; await renderGames(); if ('serviceWorker' in navigator) navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(console.warn); }
+try {
+  await dbPromise;
+  await renderGames();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+    navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(console.warn);
+  }
+}
 catch (error) { console.error(error); toast('Не вдалося відкрити локальне сховище браузера.'); }
