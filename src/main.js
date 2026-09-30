@@ -145,9 +145,14 @@ function renderList(container, items, isEffect) {
         valueInput.hidden = select.value !== 'custom'; unitSelect.hidden = select.value !== 'custom';
         let seconds = select.value === 'custom' ? Number(valueInput.value) * (unitSelect.value === 'minutes' ? 60 : 1) : Number(select.value);
         if (select.value === 'custom' && (!Number.isFinite(seconds) || seconds <= 0 || seconds > 2147483)) { if (valueInput.value) toast('Інтервал має бути більшим за нуль і не перевищувати приблизно 24 дні.'); return; }
+        const wasRepeating = state.repeatTimers.has(item.id);
         const updated = { ...item, repeatIntervalSec: seconds || null, repeatIntervalValue: select.value === 'custom' ? Number(valueInput.value) : null, repeatIntervalUnit: select.value === 'custom' ? unitSelect.value : null };
         await saveAudio(updated); Object.assign(item, updated);
-        if (!seconds) stopRepeat(item.id);
+        if (wasRepeating) {
+          clearInterval(state.repeatTimers.get(item.id)); state.repeatTimers.delete(item.id);
+          if (seconds) scheduleEffectRepeat(item);
+          else stopRepeat(item.id);
+        }
       };
       select.value = item.repeatIntervalSec ? (['3', '5', '7', '10'].includes(String(item.repeatIntervalSec)) ? String(item.repeatIntervalSec) : 'custom') : '';
       valueInput.hidden = select.value !== 'custom'; unitSelect.hidden = select.value !== 'custom';
@@ -209,20 +214,23 @@ async function playEffect(item) {
   const repeating = Number(item.repeatIntervalSec) > 0;
   const row = $(`[data-audio-id="${CSS.escape(item.id)}"]`);
   player.onended = () => {
-    if (repeating) { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); if (row) { row.classList.remove('is-playing'); $('.sound-play', row).textContent = '▶'; } return; }
+    if (repeating) { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); return; }
     state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id);
   };
   try { await player.play(); } catch { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); toast('Не вдалося відтворити звуковий файл.'); return; }
   if (repeating) {
     row?.classList.add('is-playing'); if (row) $('.sound-play', row).textContent = 'Ⅱ';
-    state.repeatTimers.set(item.id, setInterval(() => {
-      const active = state.players.get(item.id);
-      if (active && !active.paused) return;
-      const next = createPlayer(item); next.loop = false; next.volume = Number($('#effects-volume').value) / 100;
-      next.onended = () => { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); };
-      next.play().catch(() => { state.players.delete(item.id); toast('Не вдалося відтворити звуковий файл.'); });
-    }, Number(item.repeatIntervalSec) * 1000));
+    scheduleEffectRepeat(item);
   }
+}
+function scheduleEffectRepeat(item) {
+  state.repeatTimers.set(item.id, setInterval(() => {
+    const active = state.players.get(item.id);
+    if (active && !active.paused) return;
+    const next = createPlayer(item); next.loop = false; next.volume = Number($('#effects-volume').value) / 100;
+    next.onended = () => { state.players.delete(item.id); URL.revokeObjectURL(state.objectUrls.get(item.id)); state.objectUrls.delete(item.id); };
+    next.play().catch(() => { stopRepeat(item.id); toast('Не вдалося відтворити звуковий файл.'); });
+  }, Number(item.repeatIntervalSec) * 1000));
 }
 function stopPlayer(audioId, reset) {
   const player = state.players.get(audioId); if (!player) return;
